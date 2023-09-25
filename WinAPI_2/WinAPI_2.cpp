@@ -6,6 +6,9 @@
 #include <windows.h>
 #include <stdio.h>
 #include <wchar.h>
+#include <string>
+#include <string.h>
+
 #include "Resource.h"
 #include <commctrl.h>
 #include <Windows.h>
@@ -18,8 +21,16 @@
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 const double PI = 3.14159265358979323846;
-const int WINDOW_WIDTH = 800;
-const int WINDOW_HEIGHT = 600;
+const int WINDOW_WIDTH = 1500;
+const int WINDOW_HEIGHT = 970;
+const int n = 10;
+const int m = 10;
+const WCHAR text[] = L"Test Test Test";
+const int fontSize = 50.0f;
+HDC hdcBuffer = NULL;
+HBITMAP hBitmap = NULL;
+HBITMAP hOldBitmap = NULL;
+HFONT hFont = NULL;
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
@@ -27,7 +38,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     WNDCLASS wc = { };
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = hInstance;
-    wc.style = CS_VREDRAW | CS_HREDRAW;
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = CLASS_NAME;
     RegisterClass(&wc);
     HWND hwnd = CreateWindowEx(
@@ -58,124 +70,163 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 }
 
 
+void CircleText(HWND hwnd, HDC hdc) {
+    HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 252));
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+    int centerX = 200;
+    int centerY = 200;
+    int radius = 100;
+    Ellipse(hdc, centerX - radius, centerY - radius, centerX + radius, centerY + radius);
+    SelectObject(hdc, hOldBrush);
+    DeleteObject(hBrush);
+    PLOGFONT plf = (PLOGFONT)LocalAlloc(LPTR, sizeof(LOGFONT));
+    RECT rc;
+    HGDIOBJ hfnt, hfntPrev;
+    size_t pcch = 22;
+    int n = pcch;
+    WCHAR lpszRotate[22] = TEXT("String to be rotated.");
+    HRESULT hr;
+    hr = StringCchCopy(plf->lfFaceName, 6, TEXT("Arial"));        
+    plf->lfWeight = FW_NORMAL;
+    GetClientRect(hwnd, &rc);
+    SetBkMode(hdc, TRANSPARENT);
+    plf->lfHeight = MulDiv(15, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+    double angle = 270;
+    double text_angle = 0;
+    double delta_angle = 360.0 / n;
+    double center_x = 200;
+    double center_y = 200;
+    double start_x = 200;
+    double start_y = 100;
+    double x = start_x;
+    double y = start_y;
+    LPOUTLINETEXTMETRICW textmetrx;
+    int res = GetOutlineTextMetrics(hdc, 0, NULL);
+    int temp = 100;
+    OUTLINETEXTMETRICA* otm = (OUTLINETEXTMETRICA*)malloc(res);
+    GetOutlineTextMetricsA(hdc, res, otm);
+    double text_radius = radius + plf->lfHeight;
+    for (int i=0;i<n;i++)
+    {
+        x = center_x + cos(angle * PI / 180)* text_radius;
+        y = center_y + sin(angle * PI / 180)* text_radius;
+        angle += delta_angle;
+        plf->lfEscapement = text_angle;
+        text_angle -= delta_angle*10;
+        hfnt = CreateFontIndirect(plf);
+        hfntPrev = SelectObject(hdc, hfnt);
+        WCHAR test[2] = {lpszRotate[i]};
+        hr = StringCchLength(test, 22, &pcch);
+        TextOut(hdc, x, y,test, pcch);
+        SelectObject(hdc, hfntPrev);
+        DeleteObject(hfnt);
+    }
+    SetBkMode(hdc, OPAQUE);
+    LocalFree((LOCALHANDLE)plf);
+}
+
+
+void DrawTable(HWND hwnd, HDC hdc) {
+    float x = 0.0;
+    float y = 0.0;
+    RECT client_rect, cell_rect;
+    GetClientRect(hwnd, &client_rect);
+    int width = client_rect.right - client_rect.left;
+    int height = client_rect.bottom - client_rect.top;
+    for (int i = 0; i < m-1; i++)
+    {
+        x += (width / m);
+        MoveToEx(hdc, x, 0, NULL);
+        LineTo(hdc, x, height);
+    }
+    for (int i = 0; i < n; i++)
+    {
+        x = 0.0;
+        for (int j = 0; j < m; j++)
+        {
+            int textSize = ARRAYSIZE(text) - 1;          
+            cell_rect.left = x+2;
+            cell_rect.top = y+2;
+            cell_rect.right = x + (width / m);
+            cell_rect.bottom = y+ (height / n);          
+            DrawTextW(hdc, text, textSize, &cell_rect, DT_WORDBREAK);            
+            x += (width / m);
+        }
+        y += (height / n);
+        MoveToEx(hdc, 0, y, NULL);
+        LineTo(hdc, width, y);
+    }
+}
+
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    wchar_t msg[32];
     switch (uMsg)
     {
     case WM_DESTROY:
+    {
+        if (hFont != NULL) {
+            DeleteObject(hFont);
+        }
+
+        if (hdcBuffer != NULL) {
+            DeleteDC(hdcBuffer);
+        }
+
+        if (hBitmap != NULL) {
+            SelectObject(hdcBuffer, hOldBitmap);
+            DeleteObject(hBitmap);
+        }
+
         PostQuitMessage(0);
         return 0;
-
-    case WM_CREATE:
-    {
-
-        break;
     }
-    case WM_PAINT:
-    {
+    case WM_SIZE: {
+        RECT rect, client_rect, cell_rect;
+        GetClientRect(hwnd, &client_rect);
+        int width = client_rect.right - client_rect.left;
+        int height = client_rect.bottom - client_rect.top;
+        int array_len = ARRAYSIZE(text) - 1;
+        int temp = fontSize;
+        int text_rows = (temp * array_len) / (width / m);
+        while ((temp * text_rows) > (height / n)) {
+            temp -= 1.0f;
+            text_rows = (temp * array_len) / (width / m);
+        }
+        if (hFont != NULL) {
+            DeleteObject(hFont);
+        }
+        hFont = CreateFont(temp, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_DONTCARE | DEFAULT_PITCH, L"Arial");
+        HDC hdc = GetDC(hwnd);
+        hdcBuffer = CreateCompatibleDC(hdc);
+        hBitmap = CreateCompatibleBitmap(hdc, width, height);
+        hOldBitmap = (HBITMAP)SelectObject(hdcBuffer, hBitmap);
+        ReleaseDC(hwnd, hdc);
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    } 
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-
-        //// Задайте параметры кисти для рисования круга
-        HBRUSH hBrush = CreateSolidBrush(RGB(255, 0, 0)); // Красная кисть
-        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
         
-        RECT rc;
-        HGDIOBJ hfnt, hfntPrev;
-        WCHAR lpszRotate[22] = TEXT("String to be rotated.");
-        HRESULT hr;
-        size_t pcch = 22;
-        PLOGFONT plf = (PLOGFONT)LocalAlloc(LPTR, sizeof(LOGFONT));
-        hr = StringCchCopy(plf->lfFaceName, 6, TEXT("Arial"));        
-        plf->lfWeight = FW_NORMAL;
-        GetClientRect(hwnd, &rc);
-        SetBkMode(hdc, TRANSPARENT);
-        double angle = 0;
-        double delta_angle = 360 / 22;
-        double center_x = 200;
-        double center_y = 200;
-        double radius = 100;
-        double start_x = 200;
-        double start_y = 100;
-        double x = start_x;
-        double y = start_y;
-        for (int i=0;i<=22;i++)
-        {
-
-            x = center_x + cos(angle * 3.14 / 180)*100;
-            y = center_y + sin(angle * 3.14 / 180)*100;
-            angle += delta_angle;
-            MoveToEx(hdc, center_x, center_y, NULL);
-            LineTo(hdc, x, y);
-            /*plf->lfEscapement = angle;
-            angle += delta_angle;
-            hfnt = CreateFontIndirect(plf);
-            hfntPrev = SelectObject(hdc, hfnt);
-            WCHAR test[2] = {lpszRotate[0] };
-            hr = StringCchLength(test, 22, &pcch);
-            TextOut(hdc, rc.right / 2 + angle/50, rc.bottom / 2,
-                test, pcch);
-            SelectObject(hdc, hfntPrev);
-            DeleteObject(hfnt);*/
+        HBRUSH hWhiteBrush = CreateSolidBrush(RGB(255, 255, 255));
+        RECT clientRect;
+        GetClientRect(hwnd, &clientRect);
+        FillRect(hdcBuffer, &clientRect, hWhiteBrush);
+        DeleteObject(hWhiteBrush);
+        if (hFont != NULL) {
+            SelectObject(hdcBuffer, hFont);
         }
-        SetBkMode(hdc, OPAQUE);
-        LocalFree((LOCALHANDLE)plf);
-
-       /* int centerX = 100; 
-        int centerY = 100; 
-        int radius = 100;  
-        Ellipse(hdc, WINDOW_WIDTH/2 - radius, WINDOW_HEIGHT/ 2 - radius, WINDOW_WIDTH / 2 + radius, WINDOW_HEIGHT / 2 + radius);
-        SelectObject(hdc, hOldBrush);
-        DeleteObject(hBrush);
-        MoveToEx(hdc, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, NULL);
-        LineTo(hdc, WINDOW_WIDTH / 2 + 100, WINDOW_HEIGHT / 2);
-        double angle = 30 * 3.14 / 180;
-        MoveToEx(hdc, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, NULL);
-        LineTo(hdc, WINDOW_WIDTH / 2 + cos(angle) * 100, WINDOW_HEIGHT / 2 + sin(angle) * 100);*/
+        DrawTable(hwnd, hdcBuffer);
+        BitBlt(hdc, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, hdcBuffer, 0, 0, SRCCOPY);
+        
+        //CircleText(hwnd, hdc);
 
         EndPaint(hwnd, &ps);
         break;
-    }
-    case WM_LBUTTONDOWN:
-    {
-        
-        break;
-    }
-    case WM_LBUTTONUP:
-    {
-        
-        break;
-    }
-    case WM_MOUSEMOVE:
-    {
-        
-        break;
-    }
-    case WM_TOUCH:
-    {
-        break;
-    }
-    case WM_KEYDOWN:
-    {
-        
-        break;
-    }
-    case WM_MOUSEWHEEL:
-    {
-        
-        break;
-    }
-    case WM_TIMER:
-    {
-        
-        break;
-    }
-    case WM_COMMAND:
-    {
-        
-        break;
-    }
+    } 
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
