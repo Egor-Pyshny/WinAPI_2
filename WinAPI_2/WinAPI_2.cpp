@@ -71,26 +71,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 
 void CircleText(HWND hwnd, HDC hdc) {
-    HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 252));
-    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
     int centerX = 200;
     int centerY = 200;
-    int radius = 100;
-    Ellipse(hdc, centerX - radius, centerY - radius, centerX + radius, centerY + radius);
-    SelectObject(hdc, hOldBrush);
-    DeleteObject(hBrush);
-    PLOGFONT plf = (PLOGFONT)LocalAlloc(LPTR, sizeof(LOGFONT));
-    RECT rc;
-    HGDIOBJ hfnt, hfntPrev;
+    int radius = 100;   
+    int fontSize = 15;
+
     size_t pcch = 22;
     int n = pcch;
-    WCHAR lpszRotate[22] = TEXT("String to be rotated.");
-    HRESULT hr;
-    hr = StringCchCopy(plf->lfFaceName, 6, TEXT("Arial"));        
-    plf->lfWeight = FW_NORMAL;
-    GetClientRect(hwnd, &rc);
-    SetBkMode(hdc, TRANSPARENT);
-    plf->lfHeight = MulDiv(15, GetDeviceCaps(hdc, LOGPIXELSY), 72);
     double angle = 270;
     double text_angle = 0;
     double delta_angle = 360.0 / n;
@@ -100,11 +87,24 @@ void CircleText(HWND hwnd, HDC hdc) {
     double start_y = 100;
     double x = start_x;
     double y = start_y;
-    LPOUTLINETEXTMETRICW textmetrx;
-    int res = GetOutlineTextMetrics(hdc, 0, NULL);
-    int temp = 100;
-    OUTLINETEXTMETRICA* otm = (OUTLINETEXTMETRICA*)malloc(res);
-    GetOutlineTextMetricsA(hdc, res, otm);
+    int radius_2 = 100 + fontSize;
+    PLOGFONT plf = (PLOGFONT)LocalAlloc(LPTR, sizeof(LOGFONT));
+    HGDIOBJ hfnt, hfntPrev; 
+    WCHAR lpszRotate[22] = TEXT("String to be rotated.");
+    HRESULT hr;
+    hr = StringCchCopy(plf->lfFaceName, 6, TEXT("Arial"));        
+    plf->lfWeight = FW_NORMAL;
+    plf->lfHeight = MulDiv(fontSize, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+    SetBkMode(hdc, TRANSPARENT);
+    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 255)); // Создаем синий перо
+    HGDIOBJ hOldPen = SelectObject(hdc, hPen);  
+    Ellipse(hdc, centerX - radius_2, centerY - radius_2, centerX + radius_2, centerY + radius_2); // Рисуем окружность
+    Ellipse(hdc, centerX - radius, centerY - radius, centerX + radius, centerY + radius);
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);  
+    int size = GetOutlineTextMetrics(hdc, 0, NULL);
+    OUTLINETEXTMETRICA* otm = (OUTLINETEXTMETRICA*)malloc(size);
+    GetOutlineTextMetricsA(hdc, size, otm);
     double text_radius = radius + plf->lfHeight;
     for (int i=0;i<n;i++)
     {
@@ -211,7 +211,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         
-        HBRUSH hWhiteBrush = CreateSolidBrush(RGB(255, 255, 255));
+        /*HBRUSH hWhiteBrush = CreateSolidBrush(RGB(255, 255, 255));
         RECT clientRect;
         GetClientRect(hwnd, &clientRect);
         FillRect(hdcBuffer, &clientRect, hWhiteBrush);
@@ -221,8 +221,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         DrawTable(hwnd, hdcBuffer);
         BitBlt(hdc, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, hdcBuffer, 0, 0, SRCCOPY);
-        
-        //CircleText(hwnd, hdc);
+       */ 
+        CircleText(hwnd, hdc);
 
         EndPaint(hwnd, &ps);
         break;
